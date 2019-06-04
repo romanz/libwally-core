@@ -4,6 +4,9 @@ from util import *
 CA_PREFIX_LIQUID = 0x0c
 EC_PUBLIC_KEY_LEN = 33
 
+HARDENED = 0x80000000
+VER_MAIN_PRIVATE = 0x0488ADE4
+
 class CATests(unittest.TestCase):
 
     def test_confidential_addr(self):
@@ -31,6 +34,24 @@ class CATests(unittest.TestCase):
         ret, new_addr_c = wally_confidential_addr_from_addr(utf8(addr), CA_PREFIX_LIQUID, out, out_len)
         self.assertEqual(ret, WALLY_OK)
         self.assertEqual(utf8(new_addr_c), addr_c)
+
+    def test_elements(self):
+        seed = create_string_buffer(64)
+        bip39_mnemonic_to_seed(b"alcohol woman abuse must during monitor noble actual mixed trade anger aisle", b"", seed, 64)
+        self.assertEqual(seed.raw.hex(), '1ebf38d0b1fc10ac12059141276c1b8b7a410ba43d04bbe9f3a371d884a304400b6a39fda34e5b282a3717663fb337954df3dadf802a4cba3d008d5e2988f70a')
+
+        master = ext_key()
+        ret = bip32_key_from_seed(seed, len(seed), VER_MAIN_PRIVATE, 0, byref(master))
+        self.assertEqual(ret, WALLY_OK)
+
+        # Blinding key derivation
+        path = [HARDENED | 77]
+        path = (c_uint * len(path))(*path)
+        node = ext_key()
+        ret = bip32_key_from_parent_path(byref(master), path, len(path), 0, byref(node))
+        self.assertEqual(ret, WALLY_OK)
+
+        self.assertEqual(bytes(node.priv_key[1:]).hex(), '9c7f4057b4caae46de6dc22b569801e47e9d1fdcba84bdbe87670cb1836a3fe7')
 
 
 if __name__ == '__main__':
